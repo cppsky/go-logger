@@ -16,13 +16,15 @@ const (
 
 type LEVEL int32
 
-var logLevel LEVEL = 1
-var maxFileSize int64
-var maxFileCount int32
-var dailyRolling bool = true
-var consoleAppender bool = true
-var RollingFile bool = false
-var logObj *_FILE
+type Logger struct {
+	logLevel        LEVEL
+	maxFileSize     int64
+	maxFileCount    int32
+	dailyRolling    bool
+	consoleAppender bool
+	RollingFile     bool
+	logObj          *_FILE
+}
 
 const DATEFORMAT = "2006-01-02"
 
@@ -57,56 +59,66 @@ type _FILE struct {
 	lg       *log.Logger
 }
 
+var defaultLogger = Logger{logLevel: 1, dailyRolling: true, consoleAppender: true}
+
 func SetConsole(isConsole bool) {
-	consoleAppender = isConsole
+	defaultLogger.consoleAppender = isConsole
 }
 
 func SetLevel(_level LEVEL) {
-	logLevel = _level
+	defaultLogger.logLevel = _level
 }
 
-func SetRollingFile(fileDir, fileName string, maxNumber int32, maxSize int64, _unit UNIT) {
-	maxFileCount = maxNumber
-	maxFileSize = maxSize * int64(_unit)
-	RollingFile = true
-	dailyRolling = false
-	logObj = &_FILE{dir: fileDir, filename: fileName, isCover: false, mu: new(sync.RWMutex)}
-	logObj.mu.Lock()
-	defer logObj.mu.Unlock()
+func (logger *Logger) SetRollingFile(fileDir, fileName string, maxNumber int32, maxSize int64, _unit UNIT) {
+	logger.maxFileCount = maxNumber
+	logger.maxFileSize = maxSize * int64(_unit)
+	logger.RollingFile = true
+	logger.dailyRolling = false
+	logger.logObj = &_FILE{dir: fileDir, filename: fileName, isCover: false, mu: new(sync.RWMutex)}
+	logger.logObj.mu.Lock()
+	defer logger.logObj.mu.Unlock()
 	for i := 1; i <= int(maxNumber); i++ {
 		if isExist(fileDir + "/" + fileName + "." + strconv.Itoa(i)) {
-			logObj._suffix = i
+			logger.logObj._suffix = i
 		} else {
 			break
 		}
 	}
-	if !logObj.isMustRename() {
-		logObj.logfile, _ = os.OpenFile(fileDir+"/"+fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0)
-		logObj.lg = log.New(logObj.logfile, "\n", log.Ldate|log.Ltime|log.Lshortfile)
+	if !logger.logObj.isMustRename(logger) {
+		defaultLogger.logObj.logfile, _ = os.OpenFile(fileDir+"/"+fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0)
+		logger.logObj.lg = log.New(logger.logObj.logfile, "\n", log.Ldate|log.Ltime|log.Lshortfile)
 	} else {
-		logObj.rename()
+		logger.logObj.rename(logger)
 	}
-	go fileMonitor()
+	go logger.fileMonitor()
+}
+
+func SetRollingFile(fileDir, fileName string, maxNumber int32, maxSize int64, _unit UNIT) {
+	(&defaultLogger).SetRollingFile(fileDir, fileName, maxNumber, maxSize, _unit)
 }
 
 func SetRollingDaily(fileDir, fileName string) {
-	RollingFile = false
-	dailyRolling = true
-	t, _ := time.Parse(DATEFORMAT, time.Now().Format(DATEFORMAT))
-	logObj = &_FILE{dir: fileDir, filename: fileName, _date: &t, isCover: false, mu: new(sync.RWMutex)}
-	logObj.mu.Lock()
-	defer logObj.mu.Unlock()
+	(&defaultLogger).SetRollingDaily(fileDir, fileName)
+}
 
-	if !logObj.isMustRename() {
-		logObj.logfile, _ = os.OpenFile(fileDir+"/"+fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0)
-		logObj.lg = log.New(logObj.logfile, "\n", log.Ldate|log.Ltime|log.Lshortfile)
+func (logger *Logger) SetRollingDaily(fileDir, fileName string) {
+	logger.RollingFile = false
+	logger.dailyRolling = true
+	t, _ := time.Parse(DATEFORMAT, time.Now().Format(DATEFORMAT))
+	logger.logObj = &_FILE{dir: fileDir, filename: fileName, _date: &t, isCover: false, mu: new(sync.RWMutex)}
+	logger.logObj.mu.Lock()
+	defer logger.logObj.mu.Unlock()
+
+	if !logger.logObj.isMustRename(logger) {
+		logger.logObj.logfile, _ = os.OpenFile(fileDir+"/"+fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0)
+		logger.logObj.lg = log.New(logger.logObj.logfile, "\n", log.Ldate|log.Ltime|log.Lshortfile)
 	} else {
-		logObj.rename()
+		logger.logObj.rename(logger)
 	}
 }
 
-func console(s ...interface{}) {
-	if consoleAppender {
+func (logger *Logger) console(s ...interface{}) {
+	if logger.consoleAppender {
 		_, file, line, _ := runtime.Caller(2)
 		short := file
 		for i := len(file) - 1; i > 0; i-- {
@@ -127,76 +139,95 @@ func catchError() {
 }
 
 func Debug(v ...interface{}) {
-	if dailyRolling {
-		fileCheck()
+	(&defaultLogger).Debug(v...)
+}
+
+func (logger *Logger) Debug(v ...interface{}) {
+	if logger.dailyRolling {
+		logger.fileCheck()
 	}
 	defer catchError()
-	logObj.mu.RLock()
-	defer logObj.mu.RUnlock()
+	logger.logObj.mu.RLock()
+	defer logger.logObj.mu.RUnlock()
 
-	if logLevel <= DEBUG {
-		logObj.lg.Output(2, fmt.Sprintln("debug", v))
-		console("debug", v)
+	if logger.logLevel <= DEBUG {
+		logger.logObj.lg.Output(2, fmt.Sprintln("debug", v))
+		logger.console("debug", v)
 	}
 }
+
 func Info(v ...interface{}) {
-	if dailyRolling {
-		fileCheck()
+	(&defaultLogger).Info(v)
+}
+
+func (logger *Logger) Info(v ...interface{}) {
+	if logger.dailyRolling {
+		logger.fileCheck()
 	}
 	defer catchError()
-	logObj.mu.RLock()
-	defer logObj.mu.RUnlock()
-	if logLevel <= INFO {
-		logObj.lg.Output(2, fmt.Sprintln("info", v))
-		console("info", v)
+	logger.logObj.mu.RLock()
+	defer logger.logObj.mu.RUnlock()
+	if logger.logLevel <= INFO {
+		logger.logObj.lg.Output(2, fmt.Sprintln("info", v))
+		logger.console("info", v)
 	}
 }
-func Warn(v ...interface{}) {
-	if dailyRolling {
-		fileCheck()
+func (logger *Logger) Warn(v ...interface{}) {
+	if logger.dailyRolling {
+		logger.fileCheck()
 	}
 	defer catchError()
-	logObj.mu.RLock()
-	defer logObj.mu.RUnlock()
-	if logLevel <= WARN {
-		logObj.lg.Output(2, fmt.Sprintln("warn", v))
-		console("warn", v)
-	}
-}
-func Error(v ...interface{}) {
-	if dailyRolling {
-		fileCheck()
-	}
-	defer catchError()
-	logObj.mu.RLock()
-	defer logObj.mu.RUnlock()
-	if logLevel <= ERROR {
-		logObj.lg.Output(2, fmt.Sprintln("error", v))
-		console("error", v)
-	}
-}
-func Fatal(v ...interface{}) {
-	if dailyRolling {
-		fileCheck()
-	}
-	defer catchError()
-	logObj.mu.RLock()
-	defer logObj.mu.RUnlock()
-	if logLevel <= FATAL {
-		logObj.lg.Output(2, fmt.Sprintln("fatal", v))
-		console("fatal", v)
+	logger.logObj.mu.RLock()
+	defer logger.logObj.mu.RUnlock()
+	if logger.logLevel <= WARN {
+		logger.logObj.lg.Output(2, fmt.Sprintln("warn", v))
+		logger.console("warn", v)
 	}
 }
 
-func (f *_FILE) isMustRename() bool {
-	if dailyRolling {
+func Error(v ...interface{}) {
+	(&defaultLogger).Error(v...)
+}
+
+func (logger *Logger) Error(v ...interface{}) {
+	if logger.dailyRolling {
+		logger.fileCheck()
+	}
+	defer catchError()
+	logger.logObj.mu.RLock()
+	defer logger.logObj.mu.RUnlock()
+	if logger.logLevel <= ERROR {
+		logger.logObj.lg.Output(2, fmt.Sprintln("error", v))
+		logger.console("error", v)
+	}
+}
+
+func Fatal(v ...interface{}) {
+	(&defaultLogger).Fatal(v...)
+}
+
+func (logger *Logger) Fatal(v ...interface{}) {
+	if logger.dailyRolling {
+		logger.fileCheck()
+	}
+	defer catchError()
+	logger.logObj.mu.RLock()
+	defer logger.logObj.mu.RUnlock()
+	if logger.logLevel <= FATAL {
+		logger.logObj.lg.Output(2, fmt.Sprintln("fatal", v))
+		logger.console("fatal", v)
+	}
+}
+
+func (f *_FILE) isMustRename(logger *Logger) bool {
+	if logger.dailyRolling {
 		t, _ := time.Parse(DATEFORMAT, time.Now().Format(DATEFORMAT))
 		if t.After(*f._date) {
 			return true
 		}
 	} else {
-		if maxFileCount > 1 {
-			if fileSize(f.dir+"/"+f.filename) >= maxFileSize {
+		if logger.maxFileCount > 1 {
+			if fileSize(f.dir+"/"+f.filename) >= logger.maxFileSize {
 				return true
 			}
 		}
@@ -204,10 +235,10 @@ func (f *_FILE) isMustRename() bool {
 	return false
 }
 
-func (f *_FILE) rename() {
-	if dailyRolling {
+func (f *_FILE) rename(logger *Logger) {
+	if logger.dailyRolling {
 		fn := f.dir + "/" + f.filename + "." + f._date.Format(DATEFORMAT)
-		if !isExist(fn) && f.isMustRename() {
+		if !isExist(fn) && f.isMustRename(logger) {
 			if f.logfile != nil {
 				f.logfile.Close()
 			}
@@ -218,19 +249,19 @@ func (f *_FILE) rename() {
 			t, _ := time.Parse(DATEFORMAT, time.Now().Format(DATEFORMAT))
 			f._date = &t
 			f.logfile, _ = os.Create(f.dir + "/" + f.filename)
-			f.lg = log.New(logObj.logfile, "\n", log.Ldate|log.Ltime|log.Lshortfile)
+			f.lg = log.New(logger.logObj.logfile, "\n", log.Ldate|log.Ltime|log.Lshortfile)
 		}
 	} else {
-		f.coverNextOne()
+		f.coverNextOne(logger)
 	}
 }
 
-func (f *_FILE) nextSuffix() int {
-	return int(f._suffix%int(maxFileCount) + 1)
+func (f *_FILE) nextSuffix(logger *Logger) int {
+	return int(f._suffix%int(logger.maxFileCount) + 1)
 }
 
-func (f *_FILE) coverNextOne() {
-	f._suffix = f.nextSuffix()
+func (f *_FILE) coverNextOne(logger *Logger) {
+	f._suffix = f.nextSuffix(logger)
 	if f.logfile != nil {
 		f.logfile.Close()
 	}
@@ -239,7 +270,7 @@ func (f *_FILE) coverNextOne() {
 	}
 	os.Rename(f.dir+"/"+f.filename, f.dir+"/"+f.filename+"."+strconv.Itoa(int(f._suffix)))
 	f.logfile, _ = os.Create(f.dir + "/" + f.filename)
-	f.lg = log.New(logObj.logfile, "\n", log.Ldate|log.Ltime|log.Lshortfile)
+	f.lg = log.New(logger.logObj.logfile, "\n", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
 func fileSize(file string) int64 {
@@ -257,25 +288,25 @@ func isExist(path string) bool {
 	return err == nil || os.IsExist(err)
 }
 
-func fileMonitor() {
+func (logger *Logger) fileMonitor() {
 	timer := time.NewTicker(1 * time.Second)
 	for {
 		select {
 		case <-timer.C:
-			fileCheck()
+			logger.fileCheck()
 		}
 	}
 }
 
-func fileCheck() {
+func (logger *Logger) fileCheck() {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println(err)
 		}
 	}()
-	if logObj != nil && logObj.isMustRename() {
-		logObj.mu.Lock()
-		defer logObj.mu.Unlock()
-		logObj.rename()
+	if logger.logObj != nil && logger.logObj.isMustRename(logger) {
+		logger.logObj.mu.Lock()
+		defer logger.logObj.mu.Unlock()
+		logger.logObj.rename(logger)
 	}
 }
