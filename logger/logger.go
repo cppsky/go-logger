@@ -59,14 +59,18 @@ type _FILE struct {
 	lg       *log.Logger
 }
 
-var defaultLogger = Logger{logLevel: 1, dailyRolling: true, consoleAppender: true}
+var DefaultLogger = Logger{logLevel: 1, dailyRolling: true, consoleAppender: true}
 
 func SetConsole(isConsole bool) {
-	defaultLogger.consoleAppender = isConsole
+	DefaultLogger.consoleAppender = isConsole
 }
 
 func SetLevel(_level LEVEL) {
-	defaultLogger.logLevel = _level
+	DefaultLogger.SetLevel(_level)
+}
+
+func (logger *Logger) SetLevel(_level LEVEL) {
+	logger.logLevel = _level
 }
 
 func (logger *Logger) SetRollingFile(fileDir, fileName string, maxNumber int32, maxSize int64, _unit UNIT) {
@@ -85,7 +89,7 @@ func (logger *Logger) SetRollingFile(fileDir, fileName string, maxNumber int32, 
 		}
 	}
 	if !logger.logObj.isMustRename(logger) {
-		defaultLogger.logObj.logfile, _ = os.OpenFile(fileDir+"/"+fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0)
+		DefaultLogger.logObj.logfile, _ = os.OpenFile(fileDir+"/"+fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0)
 		logger.logObj.lg = log.New(logger.logObj.logfile, "\n", log.Ldate|log.Ltime|log.Lshortfile)
 	} else {
 		logger.logObj.rename(logger)
@@ -94,11 +98,11 @@ func (logger *Logger) SetRollingFile(fileDir, fileName string, maxNumber int32, 
 }
 
 func SetRollingFile(fileDir, fileName string, maxNumber int32, maxSize int64, _unit UNIT) {
-	(&defaultLogger).SetRollingFile(fileDir, fileName, maxNumber, maxSize, _unit)
+	(&DefaultLogger).SetRollingFile(fileDir, fileName, maxNumber, maxSize, _unit)
 }
 
 func SetRollingDaily(fileDir, fileName string) {
-	(&defaultLogger).SetRollingDaily(fileDir, fileName)
+	(&DefaultLogger).SetRollingDaily(fileDir, fileName)
 }
 
 func (logger *Logger) SetRollingDaily(fileDir, fileName string) {
@@ -139,7 +143,7 @@ func catchError() {
 }
 
 func Debug(v ...interface{}) {
-	(&defaultLogger).Debug(v...)
+	(&DefaultLogger).Debug(v...)
 }
 
 func (logger *Logger) Debug(v ...interface{}) {
@@ -157,7 +161,7 @@ func (logger *Logger) Debug(v ...interface{}) {
 }
 
 func Info(v ...interface{}) {
-	(&defaultLogger).Info(v)
+	(&DefaultLogger).Info(v)
 }
 
 func (logger *Logger) Info(v ...interface{}) {
@@ -186,7 +190,7 @@ func (logger *Logger) Warn(v ...interface{}) {
 }
 
 func Error(v ...interface{}) {
-	(&defaultLogger).Error(v...)
+	(&DefaultLogger).Error(v...)
 }
 
 func (logger *Logger) Error(v ...interface{}) {
@@ -203,7 +207,7 @@ func (logger *Logger) Error(v ...interface{}) {
 }
 
 func Fatal(v ...interface{}) {
-	(&defaultLogger).Fatal(v...)
+	(&DefaultLogger).Fatal(v...)
 }
 
 func (logger *Logger) Fatal(v ...interface{}) {
