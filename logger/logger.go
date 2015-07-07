@@ -121,9 +121,9 @@ func (logger *Logger) SetRollingDaily(fileDir, fileName string) {
 	}
 }
 
-func (logger *Logger) console(s ...interface{}) {
+func (logger *Logger) console(calldepth int, s ...interface{}) {
 	if logger.consoleAppender {
-		_, file, line, _ := runtime.Caller(2)
+		_, file, line, _ := runtime.Caller(calldepth)
 		short := file
 		for i := len(file) - 1; i > 0; i-- {
 			if file[i] == '/' {
@@ -142,29 +142,35 @@ func catchError() {
 	}
 }
 
-func Debug(v ...interface{}) {
-	(&DefaultLogger).Debug(v...)
-}
+func (logger *Logger) innerDebug(calldepth int, v ...interface{}) {
 
-func (logger *Logger) Debug(v ...interface{}) {
 	if logger.dailyRolling {
 		logger.fileCheck()
 	}
+
 	defer catchError()
+	if logger.logObj == nil {
+		logger.console(calldepth, "debug", v)
+		return
+	}
 	logger.logObj.mu.RLock()
 	defer logger.logObj.mu.RUnlock()
 
 	if logger.logLevel <= DEBUG {
-		logger.logObj.lg.Output(2, fmt.Sprintln("debug", v))
-		logger.console("debug", v)
+		logger.logObj.lg.Output(calldepth, fmt.Sprintln("debug", v))
+		logger.console(calldepth, "debug", v)
 	}
 }
 
-func Info(v ...interface{}) {
-	(&DefaultLogger).Info(v)
+func (logger *Logger) Debug(v ...interface{}) {
+	logger.innerDebug(3, v...)
 }
 
-func (logger *Logger) Info(v ...interface{}) {
+func Debug(v ...interface{}) {
+	(&DefaultLogger).innerDebug(3, v...)
+}
+
+func (logger *Logger) innerInfo(calldepth int, v ...interface{}) {
 	if logger.dailyRolling {
 		logger.fileCheck()
 	}
@@ -172,11 +178,20 @@ func (logger *Logger) Info(v ...interface{}) {
 	logger.logObj.mu.RLock()
 	defer logger.logObj.mu.RUnlock()
 	if logger.logLevel <= INFO {
-		logger.logObj.lg.Output(2, fmt.Sprintln("info", v))
-		logger.console("info", v)
+		logger.logObj.lg.Output(calldepth, fmt.Sprintln("info", v))
+		logger.console(calldepth, "info", v)
 	}
 }
-func (logger *Logger) Warn(v ...interface{}) {
+
+func (logger *Logger) Info(v ...interface{}) {
+	logger.innerInfo(3, v...)
+}
+
+func Info(v ...interface{}) {
+	(&DefaultLogger).innerInfo(3, v...)
+}
+
+func (logger *Logger) innerWarn(calldepth int, v ...interface{}) {
 	if logger.dailyRolling {
 		logger.fileCheck()
 	}
@@ -184,16 +199,16 @@ func (logger *Logger) Warn(v ...interface{}) {
 	logger.logObj.mu.RLock()
 	defer logger.logObj.mu.RUnlock()
 	if logger.logLevel <= WARN {
-		logger.logObj.lg.Output(2, fmt.Sprintln("warn", v))
-		logger.console("warn", v)
+		logger.logObj.lg.Output(calldepth, fmt.Sprintln("warn", v))
+		logger.console(calldepth, "warn", v)
 	}
 }
 
-func Error(v ...interface{}) {
-	(&DefaultLogger).Error(v...)
+func (logger *Logger) Warn(v ...interface{}) {
+	logger.innerWarn(3, v...)
 }
 
-func (logger *Logger) Error(v ...interface{}) {
+func (logger *Logger) innerError(calldepth int, v ...interface{}) {
 	if logger.dailyRolling {
 		logger.fileCheck()
 	}
@@ -201,16 +216,20 @@ func (logger *Logger) Error(v ...interface{}) {
 	logger.logObj.mu.RLock()
 	defer logger.logObj.mu.RUnlock()
 	if logger.logLevel <= ERROR {
-		logger.logObj.lg.Output(2, fmt.Sprintln("error", v))
-		logger.console("error", v)
+		logger.logObj.lg.Output(calldepth, fmt.Sprintln("error", v))
+		logger.console(calldepth, "error", v)
 	}
 }
 
-func Fatal(v ...interface{}) {
-	(&DefaultLogger).Fatal(v...)
+func (logger *Logger) Error(v ...interface{}) {
+	logger.innerError(3, v...)
 }
 
-func (logger *Logger) Fatal(v ...interface{}) {
+func Error(v ...interface{}) {
+	(&DefaultLogger).innerError(3, v...)
+}
+
+func (logger *Logger) innerFatal(calldepth int, v ...interface{}) {
 	if logger.dailyRolling {
 		logger.fileCheck()
 	}
@@ -218,9 +237,17 @@ func (logger *Logger) Fatal(v ...interface{}) {
 	logger.logObj.mu.RLock()
 	defer logger.logObj.mu.RUnlock()
 	if logger.logLevel <= FATAL {
-		logger.logObj.lg.Output(2, fmt.Sprintln("fatal", v))
-		logger.console("fatal", v)
+		logger.logObj.lg.Output(calldepth, fmt.Sprintln("fatal", v))
+		logger.console(calldepth, "fatal", v)
 	}
+}
+
+func (logger *Logger) Fatal(v ...interface{}) {
+	logger.innerFatal(3, v...)
+}
+
+func Fatal(v ...interface{}) {
+	(&DefaultLogger).innerFatal(3, v...)
 }
 
 func (f *_FILE) isMustRename(logger *Logger) bool {
