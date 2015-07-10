@@ -23,6 +23,7 @@ type Logger struct {
 	dailyRolling    bool
 	consoleAppender bool
 	RollingFile     bool
+	mu              *sync.RWMutex
 	logObj          *_FILE
 }
 
@@ -54,12 +55,16 @@ type _FILE struct {
 	_suffix  int
 	isCover  bool
 	_date    *time.Time
-	mu       *sync.RWMutex
-	logfile  *os.File
-	lg       *log.Logger
+
+	logfile *os.File
+	lg      *log.Logger
 }
 
-var DefaultLogger = Logger{logLevel: 1, dailyRolling: true, consoleAppender: true}
+var DefaultLogger = Logger{logLevel: 1, dailyRolling: true, consoleAppender: true, mu: new(sync.RWMutex)}
+
+func New() *Logger {
+	return &Logger{logLevel: 1, dailyRolling: true, consoleAppender: true, mu: new(sync.RWMutex)}
+}
 
 func SetConsole(isConsole bool) {
 	DefaultLogger.consoleAppender = isConsole
@@ -78,9 +83,9 @@ func (logger *Logger) SetRollingFile(fileDir, fileName string, maxNumber int32, 
 	logger.maxFileSize = maxSize * int64(_unit)
 	logger.RollingFile = true
 	logger.dailyRolling = false
-	logger.logObj = &_FILE{dir: fileDir, filename: fileName, isCover: false, mu: new(sync.RWMutex)}
-	logger.logObj.mu.Lock()
-	defer logger.logObj.mu.Unlock()
+	logger.logObj = &_FILE{dir: fileDir, filename: fileName, isCover: false}
+	logger.mu.Lock()
+	defer logger.mu.Unlock()
 	for i := 1; i <= int(maxNumber); i++ {
 		if isExist(fileDir + "/" + fileName + "." + strconv.Itoa(i)) {
 			logger.logObj._suffix = i
@@ -90,7 +95,7 @@ func (logger *Logger) SetRollingFile(fileDir, fileName string, maxNumber int32, 
 	}
 	if !logger.logObj.isMustRename(logger) {
 		DefaultLogger.logObj.logfile, _ = os.OpenFile(fileDir+"/"+fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0)
-		logger.logObj.lg = log.New(logger.logObj.logfile, "\n", log.Ldate|log.Ltime|log.Lshortfile)
+		logger.logObj.lg = log.New(logger.logObj.logfile, "", log.Ldate|log.Ltime|log.Lshortfile)
 	} else {
 		logger.logObj.rename(logger)
 	}
@@ -106,22 +111,32 @@ func SetRollingDaily(fileDir, fileName string) {
 }
 
 func (logger *Logger) SetRollingDaily(fileDir, fileName string) {
+	var err error
 	logger.RollingFile = false
 	logger.dailyRolling = true
 	t, _ := time.Parse(DATEFORMAT, time.Now().Format(DATEFORMAT))
-	logger.logObj = &_FILE{dir: fileDir, filename: fileName, _date: &t, isCover: false, mu: new(sync.RWMutex)}
-	logger.logObj.mu.Lock()
-	defer logger.logObj.mu.Unlock()
+	logger.logObj = &_FILE{dir: fileDir, filename: fileName, _date: &t, isCover: false}
+	logger.mu.Lock()
+	defer logger.mu.Unlock()
 
 	if !logger.logObj.isMustRename(logger) {
-		logger.logObj.logfile, _ = os.OpenFile(fileDir+"/"+fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0)
+		logger.logObj.logfile, err = os.OpenFile(fileDir+"/"+fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0)
+		if err != nil {
+			log.Println(err)
+			logger.logObj = nil
+			return
+		}
 		logger.logObj.lg = log.New(logger.logObj.logfile, "\n", log.Ldate|log.Ltime|log.Lshortfile)
 	} else {
 		logger.logObj.rename(logger)
 	}
 }
 
-func (logger *Logger) console(calldepth int, s ...interface{}) {
+func (logger *Logger) console(calldepth int, level string, s ...interface{}) {
+	if logger.logObj.lg != nil {
+		logger.logObj.lg.Output(calldepth, fmt.Sprintln(level, s))
+	}
+
 	if logger.consoleAppender {
 		_, file, line, _ := runtime.Caller(calldepth)
 		short := file
@@ -132,13 +147,19 @@ func (logger *Logger) console(calldepth int, s ...interface{}) {
 			}
 		}
 		file = short
-		log.Println(file+":"+strconv.Itoa(line), s)
+		log.Println(file+":"+strconv.Itoa(line), level, s)
 	}
 }
 
 func catchError() {
 	if err := recover(); err != nil {
 		log.Println("err", err)
+	}
+}
+
+func (logger *Logger) checkLogObj() {
+	if logger.logObj == nil {
+		logger.logObj = &_FILE{dir: "", filename: "", isCover: false}
 	}
 }
 
@@ -149,15 +170,11 @@ func (logger *Logger) innerDebug(calldepth int, v ...interface{}) {
 	}
 
 	defer catchError()
-	if logger.logObj == nil {
-		logger.console(calldepth, "debug", v)
-		return
-	}
-	logger.logObj.mu.RLock()
-	defer logger.logObj.mu.RUnlock()
+	logger.checkLogObj()
+	logger.mu.RLock()
+	defer logger.mu.RUnlock()
 
 	if logger.logLevel <= DEBUG {
-		logger.logObj.lg.Output(calldepth, fmt.Sprintln("debug", v))
 		logger.console(calldepth, "debug", v)
 	}
 }
@@ -175,8 +192,8 @@ func (logger *Logger) innerInfo(calldepth int, v ...interface{}) {
 		logger.fileCheck()
 	}
 	defer catchError()
-	logger.logObj.mu.RLock()
-	defer logger.logObj.mu.RUnlock()
+	logger.mu.RLock()
+	defer logger.mu.RUnlock()
 	if logger.logLevel <= INFO {
 		logger.logObj.lg.Output(calldepth, fmt.Sprintln("info", v))
 		logger.console(calldepth, "info", v)
@@ -196,8 +213,8 @@ func (logger *Logger) innerWarn(calldepth int, v ...interface{}) {
 		logger.fileCheck()
 	}
 	defer catchError()
-	logger.logObj.mu.RLock()
-	defer logger.logObj.mu.RUnlock()
+	logger.mu.RLock()
+	defer logger.mu.RUnlock()
 	if logger.logLevel <= WARN {
 		logger.logObj.lg.Output(calldepth, fmt.Sprintln("warn", v))
 		logger.console(calldepth, "warn", v)
@@ -213,8 +230,8 @@ func (logger *Logger) innerError(calldepth int, v ...interface{}) {
 		logger.fileCheck()
 	}
 	defer catchError()
-	logger.logObj.mu.RLock()
-	defer logger.logObj.mu.RUnlock()
+	logger.mu.RLock()
+	defer logger.mu.RUnlock()
 	if logger.logLevel <= ERROR {
 		logger.logObj.lg.Output(calldepth, fmt.Sprintln("error", v))
 		logger.console(calldepth, "error", v)
@@ -234,8 +251,8 @@ func (logger *Logger) innerFatal(calldepth int, v ...interface{}) {
 		logger.fileCheck()
 	}
 	defer catchError()
-	logger.logObj.mu.RLock()
-	defer logger.logObj.mu.RUnlock()
+	logger.mu.RLock()
+	defer logger.mu.RUnlock()
 	if logger.logLevel <= FATAL {
 		logger.logObj.lg.Output(calldepth, fmt.Sprintln("fatal", v))
 		logger.console(calldepth, "fatal", v)
@@ -251,8 +268,18 @@ func Fatal(v ...interface{}) {
 }
 
 func (f *_FILE) isMustRename(logger *Logger) bool {
+
 	if logger.dailyRolling {
-		t, _ := time.Parse(DATEFORMAT, time.Now().Format(DATEFORMAT))
+
+		if f._date == nil {
+			return false
+		}
+
+		t, err := time.Parse(DATEFORMAT, time.Now().Format(DATEFORMAT))
+		if err != nil {
+			return false
+		}
+
 		if t.After(*f._date) {
 			return true
 		}
@@ -335,9 +362,10 @@ func (logger *Logger) fileCheck() {
 			log.Println(err)
 		}
 	}()
+
 	if logger.logObj != nil && logger.logObj.isMustRename(logger) {
-		logger.logObj.mu.Lock()
-		defer logger.logObj.mu.Unlock()
+		logger.mu.Lock()
+		defer logger.mu.Unlock()
 		logger.logObj.rename(logger)
 	}
 }
