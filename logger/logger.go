@@ -133,7 +133,7 @@ func (logger *Logger) SetRollingDaily(fileDir, fileName string) {
 }
 
 func (logger *Logger) console(calldepth int, level string, s ...interface{}) {
-	if logger.logObj.lg != nil {
+	if logger.logObj != nil && logger.logObj.lg != nil {
 		logger.logObj.lg.Output(calldepth, fmt.Sprintln(level, s))
 	}
 
@@ -216,7 +216,6 @@ func (logger *Logger) innerWarn(calldepth int, v ...interface{}) {
 	logger.mu.RLock()
 	defer logger.mu.RUnlock()
 	if logger.logLevel <= WARN {
-		logger.logObj.lg.Output(calldepth, fmt.Sprintln("warn", v))
 		logger.console(calldepth, "warn", v)
 	}
 }
@@ -233,7 +232,6 @@ func (logger *Logger) innerError(calldepth int, v ...interface{}) {
 	logger.mu.RLock()
 	defer logger.mu.RUnlock()
 	if logger.logLevel <= ERROR {
-		logger.logObj.lg.Output(calldepth, fmt.Sprintln("error", v))
 		logger.console(calldepth, "error", v)
 	}
 }
@@ -254,7 +252,6 @@ func (logger *Logger) innerFatal(calldepth int, v ...interface{}) {
 	logger.mu.RLock()
 	defer logger.mu.RUnlock()
 	if logger.logLevel <= FATAL {
-		logger.logObj.lg.Output(calldepth, fmt.Sprintln("fatal", v))
 		logger.console(calldepth, "fatal", v)
 	}
 }
