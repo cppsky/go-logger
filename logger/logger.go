@@ -183,6 +183,10 @@ func (logger *Logger) Debug(v ...interface{}) {
 	logger.innerDebug(3, v...)
 }
 
+func DebugN(calldepth int, v ...interface{}) {
+	(&DefaultLogger).innerDebug(3+calldepth, v...)
+}
+
 func Debug(v ...interface{}) {
 	(&DefaultLogger).innerDebug(3, v...)
 }
@@ -242,6 +246,10 @@ func (logger *Logger) Error(v ...interface{}) {
 
 func Error(v ...interface{}) {
 	(&DefaultLogger).innerError(3, v...)
+}
+
+func ErrorD(callDepth int, v ...interface{}) {
+	(&DefaultLogger).innerError(callDepth+3, v...)
 }
 
 func (logger *Logger) innerFatal(calldepth int, v ...interface{}) {
