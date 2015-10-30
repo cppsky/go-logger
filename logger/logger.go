@@ -164,7 +164,6 @@ func (logger *Logger) checkLogObj() {
 }
 
 func (logger *Logger) innerDebug(calldepth int, v ...interface{}) {
-
 	if logger.dailyRolling {
 		logger.fileCheck()
 	}
@@ -195,12 +194,14 @@ func (logger *Logger) innerInfo(calldepth int, v ...interface{}) {
 	if logger.dailyRolling {
 		logger.fileCheck()
 	}
+
 	defer catchError()
 	logger.mu.RLock()
 	defer logger.mu.RUnlock()
+
 	if logger.logLevel <= INFO {
-		logger.logObj.lg.Output(calldepth, fmt.Sprintln("info", v))
 		logger.console(calldepth, "info", v)
+
 	}
 }
 
