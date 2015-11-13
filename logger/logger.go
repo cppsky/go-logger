@@ -190,6 +190,10 @@ func Debug(v ...interface{}) {
 	(&DefaultLogger).innerDebug(3, v...)
 }
 
+func Debugf(format string, v ...interface{}) {
+	Debug(fmt.Sprintf(format, v...))
+}
+
 func (logger *Logger) innerInfo(calldepth int, v ...interface{}) {
 	if logger.dailyRolling {
 		logger.fileCheck()
@@ -211,6 +215,10 @@ func (logger *Logger) Info(v ...interface{}) {
 
 func Info(v ...interface{}) {
 	(&DefaultLogger).innerInfo(3, v...)
+}
+
+func Infof(format string, v ...interface{}) {
+	Info(fmt.Sprintf(format, v...))
 }
 
 func (logger *Logger) innerWarn(calldepth int, v ...interface{}) {
@@ -247,6 +255,10 @@ func (logger *Logger) Error(v ...interface{}) {
 
 func Error(v ...interface{}) {
 	(&DefaultLogger).innerError(3, v...)
+}
+
+func Errorf(format string, v ...interface{}) {
+	Error(fmt.Sprintf(format, v...))
 }
 
 func ErrorD(callDepth int, v ...interface{}) {
