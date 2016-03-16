@@ -164,16 +164,14 @@ func (logger *Logger) checkLogObj() {
 }
 
 func (logger *Logger) innerDebug(calldepth int, v ...interface{}) {
-	if logger.dailyRolling {
-		logger.fileCheck()
-	}
-
-	defer catchError()
-	logger.checkLogObj()
-	logger.mu.RLock()
-	defer logger.mu.RUnlock()
-
 	if logger.logLevel <= DEBUG {
+		if logger.dailyRolling {
+			logger.fileCheck()
+		}
+		defer catchError()
+		logger.checkLogObj()
+		logger.mu.RLock()
+		defer logger.mu.RUnlock()
 		logger.console(calldepth, "debug", v)
 	}
 }
@@ -195,15 +193,14 @@ func Debugf(format string, v ...interface{}) {
 }
 
 func (logger *Logger) innerInfo(calldepth int, v ...interface{}) {
-	if logger.dailyRolling {
-		logger.fileCheck()
-	}
-
-	defer catchError()
-	logger.mu.RLock()
-	defer logger.mu.RUnlock()
-
 	if logger.logLevel <= INFO {
+		if logger.dailyRolling {
+			logger.fileCheck()
+		}
+
+		defer catchError()
+		logger.mu.RLock()
+		defer logger.mu.RUnlock()
 		logger.console(calldepth, "info", v)
 
 	}
@@ -222,13 +219,14 @@ func Infof(format string, v ...interface{}) {
 }
 
 func (logger *Logger) innerWarn(calldepth int, v ...interface{}) {
-	if logger.dailyRolling {
-		logger.fileCheck()
-	}
-	defer catchError()
-	logger.mu.RLock()
-	defer logger.mu.RUnlock()
 	if logger.logLevel <= WARN {
+		if logger.dailyRolling {
+			logger.fileCheck()
+		}
+		defer catchError()
+		logger.mu.RLock()
+		defer logger.mu.RUnlock()
+
 		logger.console(calldepth, "warn", v)
 	}
 }
@@ -238,13 +236,14 @@ func (logger *Logger) Warn(v ...interface{}) {
 }
 
 func (logger *Logger) innerError(calldepth int, v ...interface{}) {
-	if logger.dailyRolling {
-		logger.fileCheck()
-	}
-	defer catchError()
-	logger.mu.RLock()
-	defer logger.mu.RUnlock()
 	if logger.logLevel <= ERROR {
+		if logger.dailyRolling {
+			logger.fileCheck()
+		}
+		defer catchError()
+		logger.mu.RLock()
+		defer logger.mu.RUnlock()
+
 		logger.console(calldepth, "error", v)
 	}
 }
@@ -266,13 +265,13 @@ func ErrorD(callDepth int, v ...interface{}) {
 }
 
 func (logger *Logger) innerFatal(calldepth int, v ...interface{}) {
-	if logger.dailyRolling {
-		logger.fileCheck()
-	}
-	defer catchError()
-	logger.mu.RLock()
-	defer logger.mu.RUnlock()
 	if logger.logLevel <= FATAL {
+		if logger.dailyRolling {
+			logger.fileCheck()
+		}
+		defer catchError()
+		logger.mu.RLock()
+		defer logger.mu.RUnlock()
 		logger.console(calldepth, "fatal", v)
 	}
 }
