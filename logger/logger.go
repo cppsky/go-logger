@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	_VER string = "1.0.0"
+	_VER              string = "1.0.0"
+	_defaultCallDepth        = 4
 )
 
 type LEVEL int32
@@ -94,7 +95,7 @@ func (logger *Logger) SetRollingFile(fileDir, fileName string, maxNumber int32, 
 		}
 	}
 	if !logger.logObj.isMustRename(logger) {
-		DefaultLogger.logObj.logfile, _ = os.OpenFile(fileDir+"/"+fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0)
+		DefaultLogger.logObj.logfile, _ = os.OpenFile(fileDir+"/"+fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
 		logger.logObj.lg = log.New(logger.logObj.logfile, "", log.Ldate|log.Ltime|log.Lshortfile)
 	} else {
 		logger.logObj.rename(logger)
@@ -120,7 +121,7 @@ func (logger *Logger) SetRollingDaily(fileDir, fileName string) {
 	defer logger.mu.Unlock()
 
 	if !logger.logObj.isMustRename(logger) {
-		logger.logObj.logfile, err = os.OpenFile(fileDir+"/"+fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0)
+		logger.logObj.logfile, err = os.OpenFile(fileDir+"/"+fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			log.Println(err)
 			logger.logObj = nil
@@ -138,7 +139,7 @@ func (logger *Logger) console(calldepth int, level string, s ...interface{}) {
 	}
 
 	if logger.consoleAppender {
-		_, file, line, _ := runtime.Caller(calldepth)
+		_, file, line, _ := runtime.Caller(calldepth - 1)
 		short := file
 		for i := len(file) - 1; i > 0; i-- {
 			if file[i] == '/' {
@@ -147,7 +148,7 @@ func (logger *Logger) console(calldepth int, level string, s ...interface{}) {
 			}
 		}
 		file = short
-		log.Println(file+":"+strconv.Itoa(line), level, s)
+		fmt.Println(file+":"+strconv.Itoa(line), level, s)
 	}
 }
 
@@ -177,19 +178,19 @@ func (logger *Logger) innerDebug(calldepth int, v ...interface{}) {
 }
 
 func (logger *Logger) Debug(v ...interface{}) {
-	logger.innerDebug(3, v...)
+	logger.innerDebug(_defaultCallDepth, v...)
 }
 
 func DebugN(calldepth int, v ...interface{}) {
-	(&DefaultLogger).innerDebug(3+calldepth, v...)
+	(&DefaultLogger).innerDebug(_defaultCallDepth+calldepth, v...)
 }
 
 func Debug(v ...interface{}) {
-	(&DefaultLogger).innerDebug(3, v...)
+	(&DefaultLogger).innerDebug(_defaultCallDepth, v...)
 }
 
 func Debugf(format string, v ...interface{}) {
-	Debug(fmt.Sprintf(format, v...))
+	(&DefaultLogger).innerDebug(4, fmt.Sprintf(format, v...))
 }
 
 func (logger *Logger) innerInfo(calldepth int, v ...interface{}) {
@@ -207,15 +208,15 @@ func (logger *Logger) innerInfo(calldepth int, v ...interface{}) {
 }
 
 func (logger *Logger) Info(v ...interface{}) {
-	logger.innerInfo(3, v...)
+	logger.innerInfo(_defaultCallDepth, v...)
 }
 
 func Info(v ...interface{}) {
-	(&DefaultLogger).innerInfo(3, v...)
+	(&DefaultLogger).innerInfo(_defaultCallDepth, v...)
 }
 
 func Infof(format string, v ...interface{}) {
-	Info(fmt.Sprintf(format, v...))
+	(&DefaultLogger).innerInfo(_defaultCallDepth, fmt.Sprintf(format, v...))
 }
 
 func (logger *Logger) innerWarn(calldepth int, v ...interface{}) {
@@ -232,7 +233,7 @@ func (logger *Logger) innerWarn(calldepth int, v ...interface{}) {
 }
 
 func (logger *Logger) Warn(v ...interface{}) {
-	logger.innerWarn(3, v...)
+	logger.innerWarn(_defaultCallDepth, v...)
 }
 
 func (logger *Logger) innerError(calldepth int, v ...interface{}) {
@@ -249,18 +250,18 @@ func (logger *Logger) innerError(calldepth int, v ...interface{}) {
 }
 
 func (logger *Logger) Error(v ...interface{}) {
-	logger.innerError(3, v...)
+	logger.innerError(_defaultCallDepth, v...)
 }
 
 func Error(v ...interface{}) {
-	(&DefaultLogger).innerError(3, v...)
+	(&DefaultLogger).innerError(_defaultCallDepth, v...)
 }
 
 func Errorf(format string, v ...interface{}) {
-	Error(fmt.Sprintf(format, v...))
+	(&DefaultLogger).innerError(_defaultCallDepth, fmt.Sprintf(format, v...))
 }
 
-func ErrorD(callDepth int, v ...interface{}) {
+func ErrorN(callDepth int, v ...interface{}) {
 	(&DefaultLogger).innerError(callDepth+3, v...)
 }
 
@@ -277,11 +278,15 @@ func (logger *Logger) innerFatal(calldepth int, v ...interface{}) {
 }
 
 func (logger *Logger) Fatal(v ...interface{}) {
-	logger.innerFatal(3, v...)
+	logger.innerFatal(_defaultCallDepth, v...)
 }
 
 func Fatal(v ...interface{}) {
-	(&DefaultLogger).innerFatal(3, v...)
+	(&DefaultLogger).innerFatal(_defaultCallDepth, v...)
+}
+
+func Fatalf(format string, v ...interface{}) {
+	(&DefaultLogger).innerFatal(_defaultCallDepth, fmt.Sprintf(format, v...))
 }
 
 func (f *_FILE) isMustRename(logger *Logger) bool {
