@@ -148,7 +148,7 @@ func (logger *Logger) console(calldepth int, level string, s ...interface{}) {
 			}
 		}
 		file = short
-		fmt.Println(file+":"+strconv.Itoa(line), level, s)
+		fmt.Println(time.Now().String()+":"+file+":"+strconv.Itoa(line), level, s)
 	}
 }
 
@@ -175,6 +175,10 @@ func (logger *Logger) innerDebug(calldepth int, v ...interface{}) {
 		defer logger.mu.RUnlock()
 		logger.console(calldepth, "debug", v)
 	}
+}
+
+func (logger *Logger) Printf(format string, v ...interface{}) {
+	logger.innerDebug(_defaultCallDepth, fmt.Sprintf(format, v...))
 }
 
 func (logger *Logger) Debug(v ...interface{}) {
