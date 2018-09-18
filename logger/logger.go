@@ -61,7 +61,7 @@ type _FILE struct {
 	lg      *log.Logger
 }
 
-var DefaultLogger = Logger{logLevel: 1, dailyRolling: true, consoleAppender: true, mu: new(sync.RWMutex)}
+var DefaultLogger = &Logger{logLevel: 1, dailyRolling: true, consoleAppender: true, mu: new(sync.RWMutex)}
 
 func New() *Logger {
 	return &Logger{logLevel: 1, dailyRolling: true, consoleAppender: true, mu: new(sync.RWMutex)}
@@ -77,6 +77,11 @@ func SetLevel(_level LEVEL) {
 
 func (logger *Logger) SetLevel(_level LEVEL) {
 	logger.logLevel = _level
+}
+
+func (logger *Logger) Write(p []byte) (n int, err error) {
+	logger.Info(string(p))
+	return 0, nil
 }
 
 func (logger *Logger) SetRollingFile(fileDir, fileName string, maxNumber int32, maxSize int64, _unit UNIT) {
@@ -104,11 +109,11 @@ func (logger *Logger) SetRollingFile(fileDir, fileName string, maxNumber int32, 
 }
 
 func SetRollingFile(fileDir, fileName string, maxNumber int32, maxSize int64, _unit UNIT) {
-	(&DefaultLogger).SetRollingFile(fileDir, fileName, maxNumber, maxSize, _unit)
+	DefaultLogger.SetRollingFile(fileDir, fileName, maxNumber, maxSize, _unit)
 }
 
 func SetRollingDaily(fileDir, fileName string) {
-	(&DefaultLogger).SetRollingDaily(fileDir, fileName)
+	DefaultLogger.SetRollingDaily(fileDir, fileName)
 }
 
 func (logger *Logger) SetRollingDaily(fileDir, fileName string) {
@@ -186,15 +191,15 @@ func (logger *Logger) Debug(v ...interface{}) {
 }
 
 func DebugN(calldepth int, v ...interface{}) {
-	(&DefaultLogger).innerDebug(_defaultCallDepth+calldepth, v...)
+	DefaultLogger.innerDebug(_defaultCallDepth+calldepth, v...)
 }
 
 func Debug(v ...interface{}) {
-	(&DefaultLogger).innerDebug(_defaultCallDepth, v...)
+	DefaultLogger.innerDebug(_defaultCallDepth, v...)
 }
 
 func Debugf(format string, v ...interface{}) {
-	(&DefaultLogger).innerDebug(4, fmt.Sprintf(format, v...))
+	DefaultLogger.innerDebug(4, fmt.Sprintf(format, v...))
 }
 
 func (logger *Logger) innerInfo(calldepth int, v ...interface{}) {
@@ -216,11 +221,11 @@ func (logger *Logger) Info(v ...interface{}) {
 }
 
 func Info(v ...interface{}) {
-	(&DefaultLogger).innerInfo(_defaultCallDepth, v...)
+	DefaultLogger.innerInfo(_defaultCallDepth, v...)
 }
 
 func Infof(format string, v ...interface{}) {
-	(&DefaultLogger).innerInfo(_defaultCallDepth, fmt.Sprintf(format, v...))
+	DefaultLogger.innerInfo(_defaultCallDepth, fmt.Sprintf(format, v...))
 }
 
 func (logger *Logger) innerWarn(calldepth int, v ...interface{}) {
@@ -258,15 +263,15 @@ func (logger *Logger) Error(v ...interface{}) {
 }
 
 func Error(v ...interface{}) {
-	(&DefaultLogger).innerError(_defaultCallDepth, v...)
+	DefaultLogger.innerError(_defaultCallDepth, v...)
 }
 
 func Errorf(format string, v ...interface{}) {
-	(&DefaultLogger).innerError(_defaultCallDepth, fmt.Sprintf(format, v...))
+	DefaultLogger.innerError(_defaultCallDepth, fmt.Sprintf(format, v...))
 }
 
 func ErrorN(callDepth int, v ...interface{}) {
-	(&DefaultLogger).innerError(callDepth+3, v...)
+	DefaultLogger.innerError(callDepth+3, v...)
 }
 
 func (logger *Logger) innerFatal(calldepth int, v ...interface{}) {
@@ -286,11 +291,11 @@ func (logger *Logger) Fatal(v ...interface{}) {
 }
 
 func Fatal(v ...interface{}) {
-	(&DefaultLogger).innerFatal(_defaultCallDepth, v...)
+	DefaultLogger.innerFatal(_defaultCallDepth, v...)
 }
 
 func Fatalf(format string, v ...interface{}) {
-	(&DefaultLogger).innerFatal(_defaultCallDepth, fmt.Sprintf(format, v...))
+	DefaultLogger.innerFatal(_defaultCallDepth, fmt.Sprintf(format, v...))
 }
 
 func (f *_FILE) isMustRename(logger *Logger) bool {
