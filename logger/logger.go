@@ -11,12 +11,14 @@ import (
 )
 
 const (
-	_VER              string = "1.0.0"
-	_defaultCallDepth        = 4
+	_VER              = "1.0.0"
+	_defaultCallDepth = 4
 )
 
+// LEVEL ...
 type LEVEL int32
 
+// Logger ...
 type Logger struct {
 	logLevel        LEVEL
 	maxFileSize     int64
@@ -28,8 +30,10 @@ type Logger struct {
 	logObj          *_FILE
 }
 
+// DATEFORMAT ...
 const DATEFORMAT = "2006-01-02"
 
+// UNIT ...
 type UNIT int64
 
 const (
@@ -50,6 +54,7 @@ const (
 	OFF
 )
 
+// _FILE ...
 type _FILE struct {
 	dir      string
 	filename string
