@@ -194,7 +194,9 @@ func (logger *Logger) innerDebug(calldepth int, v ...interface{}) {
 func (logger *Logger) Printf(format string, v ...interface{}) {
 	logger.innerDebug(_defaultCallDepth, fmt.Sprintf(format, v...))
 }
-
+func (logger *Logger) Println(v ...interface{}) {
+	logger.innerDebug(_defaultCallDepth, fmt.Sprintln(v...))
+}
 func (logger *Logger) Debug(v ...interface{}) {
 	logger.innerDebug(_defaultCallDepth, v...)
 }
